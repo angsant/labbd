@@ -1,11 +1,6 @@
 .venv/
 venv/
 env/
-.streamlit/secrets.toml
 __pycache__/
 *.pyc
 .vscode/
-Lib
-Scripts
-Include
-pyvenv.cfg
