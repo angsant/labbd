@@ -16,34 +16,27 @@ st.markdown("Busca baseada em Full Text Search (MongoDB) com ranking de relevân
 
 tipo_busca = st.radio("O que você está procurando?", ["🔍 Vagas", "📄 Candidatos"], horizontal=True)
 
-# --- Função de Busca com SCORE do MongoDB ---
 def buscar_com_score(termo_busca, tipo):
     db = get_database()
     
     if db is None:
         return "Erro de conexão com o banco."
 
-    # Se a busca estiver vazia, não faz nada
     if not termo_busca:
         return []
 
-    # Configuração da Query do MongoDB Full Text Search
-    # $text: procura nos índices criados
-    # score: calcula a relevância
     query = {"$text": {"$search": termo_busca}}
-    projecao = {"score": {"$meta": "textScore"}} # Pede para retornar o score
-    ordenacao = [("score", {"$meta": "textScore"})] # Ordena do maior score para o menor
+    projecao = {"score": {"$meta": "textScore"}}
+    ordenacao = [("score", {"$meta": "textScore"})]
 
     if tipo == "🔍 Vagas":
-        # projection (projecao) inclui o campo 'score' no resultado
         cursor = db.vagas.find(query, projecao).sort(ordenacao)
         return list(cursor)
                 
-    else: # Candidatos
+    else:
         cursor = db.candidatos.find(query, projecao).sort(ordenacao)
         return list(cursor)
 
-# --- Interface ---
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{"role": "assistant", "content": "Olá! Digite skills ou palavras-chave para ver o matching por relevância."}]
 
@@ -65,7 +58,6 @@ if prompt := st.chat_input("Ex: Python, Vendas, Gerente..."):
                 resposta = f"Encontrei **{len(resultados)} matches** ordenados por relevância:\n\n"
                 
                 for item in resultados:
-                    # Formata o Score para mostrar 2 casas decimais
                     score = round(item.get('score', 0), 2)
                     
                     if tipo_busca == "🔍 Vagas":

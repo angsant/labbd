@@ -4,7 +4,6 @@ import time
 import re
 from datetime import datetime
 
-# Tenta importar a conexão do banco
 try:
     from db import get_database
 except ImportError:
@@ -13,7 +12,6 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from db import get_database
 
-# --- Configuração da Página ---
 st.set_page_config(
     page_title="Portal de Vagas",
     page_icon="💼",
@@ -21,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Funções de Autenticação no Banco ---
 def verificar_login(username, senha):
     db = get_database()
     if db is None:
@@ -45,14 +42,11 @@ def criar_usuario(nome, username, senha, role):
     db.usuarios.insert_one(novo_usuario)
     return True
 
-# --- Função para Salvar Aplicação ---
 def salvar_aplicacao(vaga, usuario_candidato):
     db = get_database()
     if db is None:
         return False
     
-    # Verifica se já aplicou para esta mesma vaga
-    # Usamos o título e a empresa como chave única da vaga neste exemplo
     ja_aplicou = db.aplicacoes.find_one({
         "vaga_titulo": vaga["titulo"],
         "empresa_vaga": vaga["empresa"],
@@ -65,13 +59,12 @@ def salvar_aplicacao(vaga, usuario_candidato):
     nova_aplicacao = {
         "vaga_titulo": vaga["titulo"],
         "empresa_vaga": vaga["empresa"],
-        "candidato_username": usuario_candidato, # Quem aplicou
+        "candidato_username": usuario_candidato,
         "data_aplicacao": datetime.now()
     }
     db.aplicacoes.insert_one(nova_aplicacao)
     return "sucesso"
 
-# --- Inicialização da Sessão ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.session_state["user_role"] = None
@@ -83,7 +76,6 @@ def logout_user():
     st.session_state["user_name"] = None
     st.rerun()
 
-# --- Barra Lateral ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2910/2910791.png", width=100)
     st.title("Acesso ao Portal")
@@ -106,7 +98,6 @@ with st.sidebar:
                 else:
                     st.error("Usuário ou senha incorretos")
             
-            # Admin de emergência
             db = get_database()
             if db is not None:
                 if db.usuarios.count_documents({}) == 0:
@@ -145,7 +136,6 @@ with st.sidebar:
         if st.button("Sair"):
             logout_user()
 
-# --- Área Principal ---
 st.title("💼 Vagas em Aberto")
 st.markdown("Confira as oportunidades mais recentes do mercado.")
 st.divider()
@@ -178,7 +168,6 @@ with col1:
                     st.write(f"🏷️ {vaga.get('tipo', '-')}")
                     
                     if st.session_state["logged_in"] and st.session_state["user_role"] == "candidato":
-                        # Chave única para o botão
                         key_btn = f"btn_aplicar_{i}"
                         if st.button("Aplicar Agora", key=key_btn):
                              resultado = salvar_aplicacao(vaga, st.session_state["user_name"])
@@ -275,25 +264,20 @@ with col2:
     
     pontos_mapa = []
     
-    # IMPORTANTE: Ordenamos as cidades por tamanho do nome (do maior para o menor).
-    # Isso evita que "sp" seja encontrado dentro de uma frase antes de "sao jose dos campos".
     chaves_ordenadas = sorted(COORDENADAS_CIDADES.keys(), key=len, reverse=True)
 
     for vaga in vagas_lista:
         local_texto = vaga.get("local", "").lower()
-        # Limpeza básica de caracteres
         local_texto = local_texto.replace("ã", "a").replace("á", "a").replace("â", "a").replace("é", "e").replace("í", "i").replace("ç", "c").replace("õ", "o").replace("ó", "o")
         
         encontrou_cidade = False
         
         for cidade in chaves_ordenadas:
-            # Usamos Regex para buscar a "palavra exata" (\b)
-            # \b significa "fronteira de palavra". Evita que "ma" dê match em "palmas".
             if re.search(r'\b' + re.escape(cidade) + r'\b', local_texto):
                 coords = COORDENADAS_CIDADES[cidade]
                 pontos_mapa.append({"lat": coords[0], "lon": coords[1]})
                 encontrou_cidade = True
-                break # Encontrou a cidade mais específica, para de procurar
+                break
         
     if len(pontos_mapa) > 0:
         df_mapa = pd.DataFrame(pontos_mapa)
@@ -301,8 +285,3 @@ with col2:
     else:
         st.caption("Nenhuma vaga com localização presencial mapeada.")
         st.map(pd.DataFrame({'lat': [-15.7975], 'lon': [-47.8919]}), zoom=3)
-    
-    
-    
-    
-    

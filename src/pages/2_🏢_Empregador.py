@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# --- Importação da Conexão ---
 try:
     from db import get_database
 except ImportError:
@@ -13,7 +12,6 @@ except ImportError:
 
 st.set_page_config(page_title="Área do Empregador", page_icon="🏢")
 
-# --- 🔒 Segurança ---
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     st.warning("⚠️ Você precisa fazer login para acessar essa página.")
     st.stop()
@@ -27,9 +25,6 @@ st.markdown(f"Bem-vindo, **{st.session_state['user_name']}**.")
 
 tab1, tab2 = st.tabs(["➕ Nova Vaga", "📋 Minhas Vagas & Candidatos"])
 
-# ==============================================================================
-# ABA 1: CADASTRAR NOVA VAGA
-# ==============================================================================
 with tab1:
     st.markdown("### Cadastrar Nova Oportunidade")
     
@@ -75,9 +70,6 @@ with tab1:
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-# ==============================================================================
-# ABA 2: LISTA DE VAGAS + CANDIDATOS
-# ==============================================================================
 with tab2:
     st.markdown("### Suas Vagas Publicadas")
     
@@ -88,23 +80,19 @@ with tab2:
     if db is not None:
         usuario_atual = st.session_state["user_name"]
         
-        # Filtra vagas deste usuário
         filtro = {
             "$or": [
                 {"criado_por": usuario_atual},
                 {"empresa": usuario_atual}
             ]
         }
-        # Traz as mais recentes primeiro
         minhas_vagas = list(db.vagas.find(filtro, {"_id": 0}).sort("data_criacao", -1))
         
         if len(minhas_vagas) > 0:
             st.info(f"Você tem {len(minhas_vagas)} vagas ativas.")
             
-            # Para cada vaga, cria um Cartão (Container)
             for i, vaga in enumerate(minhas_vagas):
                 with st.container(border=True):
-                    # --- PARTE 1: Detalhes da Vaga (A Lista que você pediu) ---
                     col_info, col_status = st.columns([3, 1])
                     
                     with col_info:
@@ -114,7 +102,6 @@ with tab2:
                         st.text(f"**Descrição:** {vaga.get('descricao')}")
                         st.text(f"**Requisitos:** {vaga.get('requisitos')}")
                     
-                    # --- PARTE 2: Busca Candidatos ---
                     candidaturas = list(db.aplicacoes.find({
                         "vaga_titulo": vaga.get('titulo'),
                         "empresa_vaga": vaga.get('empresa')
@@ -124,15 +111,12 @@ with tab2:
                     with col_status:
                         st.metric("Candidatos", qtd_candidatos)
 
-                    # --- PARTE 3: Lista de Currículos (Expansível) ---
                     if qtd_candidatos > 0:
                         with st.expander(f"👥 Ver {qtd_candidatos} Currículo(s) Recebido(s)"):
                             for cand in candidaturas:
                                 nome_candidato = cand.get("candidato_username")
                                 
-                                # Busca dados do candidato
                                 perfil = db.candidatos.find_one({"username_vinculo": nome_candidato})
-                                # Fallback para buscar por nome se não tiver vinculo
                                 if not perfil:
                                     perfil = db.candidatos.find_one({"nome": nome_candidato})
                                 
@@ -145,7 +129,6 @@ with tab2:
                                         st.write(f"🛠️ **Skills:** {perfil.get('skills')}")
                                         st.caption(f"📝 **Resumo:** {perfil.get('resumo')}")
                                     with c2:
-                                        # Data da aplicação
                                         data_app = cand.get('data_aplicacao')
                                         if isinstance(data_app, datetime):
                                             st.caption(f"Aplicou: {data_app.strftime('%d/%m')}")

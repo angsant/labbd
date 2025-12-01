@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 
-# Tenta importar a conexão do banco
 try:
     from db import get_database
 except ImportError:
@@ -14,7 +13,6 @@ except ImportError:
 
 st.set_page_config(page_title="Painel Administrativo", page_icon="⚙️", layout="wide")
 
-# --- 🔒 Verificação de Segurança ---
 if "logged_in" not in st.session_state or st.session_state["user_role"] != "admin":
     st.warning("🔒 Acesso restrito para Administradores.")
     st.stop()
@@ -27,7 +25,6 @@ if db is None:
     st.error("Erro de conexão com o banco.")
     st.stop()
 
-# --- Estrutura em 4 Abas ---
 tab_dash, tab_users, tab_vagas, tab_candidatos = st.tabs([
     "📊 Visão Geral", 
     "🔑 Gerenciar Usuários", 
@@ -35,9 +32,6 @@ tab_dash, tab_users, tab_vagas, tab_candidatos = st.tabs([
     "👥 Gerenciar Currículos"
 ])
 
-# ==============================================================================
-# ABA 1: DASHBOARD (VISUALIZAÇÃO)
-# ==============================================================================
 with tab_dash:
     st.subheader("Indicadores de Performance")
     
@@ -59,9 +53,6 @@ with tab_dash:
             fig = px.pie(df, names="tipo", title="Distribuição de Vagas por Modelo")
             st.plotly_chart(fig, use_container_width=True)
 
-# ==============================================================================
-# ABA 2: GERENCIAR USUÁRIOS (LOGIN) - NOVO!
-# ==============================================================================
 with tab_users:
     st.subheader("🔑 Cadastro de Usuários (Acesso ao Sistema)")
     st.info("Aqui você cria os logins para que as pessoas possam acessar o sistema.")
@@ -80,7 +71,6 @@ with tab_users:
                 if not u_login or not u_senha or not u_nome:
                     st.warning("Preencha todos os campos.")
                 else:
-                    # Verifica duplicidade
                     if db.usuarios.find_one({"username": u_login}):
                         st.error(f"O usuário '{u_login}' já existe!")
                     else:
@@ -104,9 +94,6 @@ with tab_users:
     else:
         st.info("Nenhum usuário encontrado.")
 
-# ==============================================================================
-# ABA 3: GERENCIAR VAGAS
-# ==============================================================================
 with tab_vagas:
     st.subheader("🏢 Controle de Vagas")
     
@@ -122,7 +109,6 @@ with tab_vagas:
             a_desc = st.text_area("Descrição")
             a_req = st.text_area("Requisitos (Skills)")
             
-            # Ajuste de salário e senioridade que faltava antes
             c3, c4 = st.columns(2)
             a_salario = c3.text_input("Salário")
             a_senioridade = c4.selectbox("Senioridade", ["Júnior", "Pleno", "Sênior"])
@@ -149,16 +135,13 @@ with tab_vagas:
     if todas_vagas:
         st.dataframe(pd.DataFrame(todas_vagas), use_container_width=True)
 
-# ==============================================================================
-# ABA 4: GERENCIAR CURRÍCULOS
-# ==============================================================================
 with tab_candidatos:
     st.subheader("👥 Controle de Currículos (Perfis)")
     
     with st.expander("➕ Cadastrar Novo Currículo (Modo Admin)"):
         with st.form("admin_form_cand"):
             c_nome = st.text_input("Nome Completo")
-            c_email = st.text_input("Email (Fictício)") # Mantido como campo extra
+            c_email = st.text_input("Email (Fictício)") 
             
             c1, c2 = st.columns(2)
             c_formacao = c1.selectbox("Formação", ["Ensino Médio", "Superior", "Pós/Mestrado"])
@@ -168,7 +151,6 @@ with tab_candidatos:
             c_resumo = st.text_area("Resumo Profissional")
             c_exp = st.text_area("Experiência")
             
-            # Vínculo com usuário de login existente (Opcional, mas recomendado)
             c_username = st.text_input("Vincular ao usuário de login (Opcional)", placeholder="Digite o login do usuário se existir")
 
             if st.form_submit_button("Salvar Currículo"):
