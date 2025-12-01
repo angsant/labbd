@@ -13,7 +13,7 @@ except ImportError:
 
 st.set_page_config(page_title="Área do Empregador", page_icon="🏢")
 
-# --- 🔒 Verificação de Segurança (Apenas Empregadores) ---
+# --- 🔒 Segurança ---
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     st.warning("⚠️ Você precisa fazer login para acessar essa página.")
     st.stop()
@@ -22,18 +22,19 @@ if st.session_state["user_role"] != "empregador":
     st.error("🚫 Acesso negado. Apenas perfis de 'Empregador' podem gerenciar vagas.")
     st.stop()
 
-st.markdown(f"# 🏢 Gestão de Vagas")
-st.markdown(f"Bem-vindo, **{st.session_state['user_name']}**. Gerencie suas oportunidades.")
+st.markdown(f"# 🏢 Painel do Empregador")
+st.markdown(f"Bem-vindo, **{st.session_state['user_name']}**.")
 
-tab1, tab2 = st.tabs(["Nova Vaga", "Minhas Vagas Publicadas"])
+tab1, tab2 = st.tabs(["➕ Nova Vaga", "📋 Minhas Vagas & Candidatos"])
 
-# --- ABA 1: Cadastrar Nova Vaga ---
+# ==============================================================================
+# ABA 1: CADASTRAR NOVA VAGA
+# ==============================================================================
 with tab1:
     st.markdown("### Cadastrar Nova Oportunidade")
     
     with st.form("form_vaga"):
         titulo = st.text_input("Título da Vaga*", placeholder="Ex: Desenvolvedor Full Stack Jr")
-        # Preenche automaticamente com o nome do usuário logado
         empresa = st.text_input("Nome da Empresa*", value=st.session_state.get("user_name", ""))
         
         c1, c2 = st.columns(2)
@@ -47,7 +48,6 @@ with tab1:
         descricao = st.text_area("Descrição da Vaga*", height=150)
         requisitos = st.text_area("Requisitos e Tecnologias*", placeholder="Ex: Python, Django, SQL, Inglês Avançado")
         
-        # Botão de envio
         submitted = st.form_submit_button("📢 Publicar Vaga")
         
         if submitted:
@@ -66,58 +66,92 @@ with tab1:
                         "descricao": descricao,
                         "requisitos": requisitos,
                         "data_criacao": datetime.now(),
-                        # CAMPO CHAVE: Grava quem criou a vaga
                         "criado_por": st.session_state["user_name"] 
                     }
                     try:
                         db.vagas.insert_one(nova_vaga)
                         st.success(f"Vaga **{titulo}** publicada com sucesso!")
-                        # Atualiza a página para a vaga aparecer na outra aba
                         st.rerun() 
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-# --- ABA 2: Visualizar APENAS as Vagas do Usuário ---
+# ==============================================================================
+# ABA 2: LISTA DE VAGAS + CANDIDATOS
+# ==============================================================================
 with tab2:
-    st.markdown(f"### Vagas criadas por: {st.session_state['user_name']}")
+    st.markdown("### Suas Vagas Publicadas")
     
-    if st.button("🔄 Atualizar Lista"):
+    if st.button("🔄 Atualizar Painel"):
         st.rerun()
         
     db = get_database()
     if db is not None:
-        # --- FILTRO APLICADO AQUI ---
-        # Antes: find({}) -> Trazia tudo
-        # Agora: find({"criado_por": ...}) -> Traz só as desse usuário
         usuario_atual = st.session_state["user_name"]
         
-        # Filtra pelo campo 'criado_por' OU pelo nome da 'empresa' (para compatibilidade)
+        # Filtra vagas deste usuário
         filtro = {
             "$or": [
                 {"criado_por": usuario_atual},
                 {"empresa": usuario_atual}
             ]
         }
-        
-        minhas_vagas = list(db.vagas.find(filtro, {"_id": 0}))
+        # Traz as mais recentes primeiro
+        minhas_vagas = list(db.vagas.find(filtro, {"_id": 0}).sort("data_criacao", -1))
         
         if len(minhas_vagas) > 0:
-            df_vagas = pd.DataFrame(minhas_vagas)
+            st.info(f"Você tem {len(minhas_vagas)} vagas ativas.")
             
-            # Mostra tabela formatada
-            st.dataframe(
-                df_vagas, 
-                column_config={
-                    "titulo": "Cargo",
-                    "empresa": "Empresa",
-                    "local": "Local",
-                    "tipo": "Modelo",
-                    "data_criacao": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY")
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            st.info(f"Você tem {len(minhas_vagas)} vaga(s) ativa(s).")
+            # Para cada vaga, cria um Cartão (Container)
+            for i, vaga in enumerate(minhas_vagas):
+                with st.container(border=True):
+                    # --- PARTE 1: Detalhes da Vaga (A Lista que você pediu) ---
+                    col_info, col_status = st.columns([3, 1])
+                    
+                    with col_info:
+                        st.subheader(vaga.get('titulo', 'Sem Título'))
+                        st.markdown(f"📍 **Local:** {vaga.get('local')} | 💰 **Salário:** {vaga.get('salario')}")
+                        st.caption(f"Publicado em: {vaga.get('data_criacao', datetime.now()).strftime('%d/%m/%Y')}")
+                    
+                    # --- PARTE 2: Busca Candidatos ---
+                    candidaturas = list(db.aplicacoes.find({
+                        "vaga_titulo": vaga.get('titulo'),
+                        "empresa_vaga": vaga.get('empresa')
+                    }))
+                    qtd_candidatos = len(candidaturas)
+
+                    with col_status:
+                        st.metric("Candidatos", qtd_candidatos)
+
+                    # --- PARTE 3: Lista de Currículos (Expansível) ---
+                    if qtd_candidatos > 0:
+                        with st.expander(f"👥 Ver {qtd_candidatos} Currículo(s) Recebido(s)"):
+                            for cand in candidaturas:
+                                nome_candidato = cand.get("candidato_username")
+                                
+                                # Busca dados do candidato
+                                perfil = db.candidatos.find_one({"username_vinculo": nome_candidato})
+                                # Fallback para buscar por nome se não tiver vinculo
+                                if not perfil:
+                                    perfil = db.candidatos.find_one({"nome": nome_candidato})
+                                
+                                st.markdown("---")
+                                if perfil:
+                                    c1, c2 = st.columns([3, 1])
+                                    with c1:
+                                        st.markdown(f"**👤 {perfil.get('nome')}**")
+                                        st.write(f"🎓 {perfil.get('formacao')} | 🗣️ {perfil.get('idiomas')}")
+                                        st.write(f"🛠️ **Skills:** {perfil.get('skills')}")
+                                        st.caption(f"📝 **Resumo:** {perfil.get('resumo')}")
+                                    with c2:
+                                        # Data da aplicação
+                                        data_app = cand.get('data_aplicacao')
+                                        if isinstance(data_app, datetime):
+                                            st.caption(f"Aplicou: {data_app.strftime('%d/%m')}")
+                                else:
+                                    st.write(f"Usuário: {nome_candidato} (Perfil não preenchido)")
+                    else:
+                        st.caption("🚫 Nenhum candidato aplicou para esta vaga ainda.")
+
         else:
-            st.warning("Você ainda não cadastrou nenhuma vaga.")
+            st.warning("Você ainda não publicou nenhuma vaga.")
+            st.write("Use a aba 'Nova Vaga' para começar.")
