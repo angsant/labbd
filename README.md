@@ -47,8 +47,8 @@ Para atender ao requisito de matching automático entre candidatos e vagas, util
 
 **Login e senha do administrador**
 
-### Login: admin
-### Senha: 123
+1. Login: admin
+2. Senha: 123
 
 **Código da Query (Exemplo):**
 ````python
