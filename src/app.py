@@ -271,19 +271,37 @@ with col2:
         "tel aviv": [32.0853, 34.7818]
     }
 
+    
     pontos_mapa = []
+    
+    # IMPORTANTE: Ordenamos as cidades por tamanho do nome (do maior para o menor).
+    # Isso evita que "sp" seja encontrado dentro de uma frase antes de "sao jose dos campos".
+    chaves_ordenadas = sorted(COORDENADAS_CIDADES.keys(), key=len, reverse=True)
+
     for vaga in vagas_lista:
         local_texto = vaga.get("local", "").lower()
-        local_texto = local_texto.replace("ã", "a").replace("á", "a").replace("â", "a").replace("é", "e").replace("í", "i").replace("ç", "c")
+        # Limpeza básica de caracteres
+        local_texto = local_texto.replace("ã", "a").replace("á", "a").replace("â", "a").replace("é", "e").replace("í", "i").replace("ç", "c").replace("õ", "o").replace("ó", "o")
         
-        for cidade, coords in COORDENADAS_CIDADES.items():
-            if cidade in local_texto:
+        encontrou_cidade = False
+        
+        for cidade in chaves_ordenadas:
+            # Usamos Regex para buscar a "palavra exata" (\b)
+            # \b significa "fronteira de palavra". Evita que "ma" dê match em "palmas".
+            if re.search(r'\b' + re.escape(cidade) + r'\b', local_texto):
+                coords = COORDENADAS_CIDADES[cidade]
                 pontos_mapa.append({"lat": coords[0], "lon": coords[1]})
-                break 
-    
+                encontrou_cidade = True
+                break # Encontrou a cidade mais específica, para de procurar
+        
     if len(pontos_mapa) > 0:
         df_mapa = pd.DataFrame(pontos_mapa)
         st.map(df_mapa, zoom=3)
     else:
         st.caption("Nenhuma vaga com localização presencial mapeada.")
         st.map(pd.DataFrame({'lat': [-15.7975], 'lon': [-47.8919]}), zoom=3)
+    
+    
+    
+    
+    
