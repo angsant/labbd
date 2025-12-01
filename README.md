@@ -51,3 +51,9 @@ db.collection.find(
     {"$text": {"$search": "python sql"}},
     {"score": {"$meta": "textScore"}}
 ).sort([("score", {"$meta": "textScore"})])
+
+
+**Login e senha do administrador**
+
+Login: admin
+Senha: 123
