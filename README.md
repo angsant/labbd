@@ -45,15 +45,14 @@ Para atender ao requisito de matching automático entre candidatos e vagas, util
 3. O MongoDB calcula automaticamente um **Score de Relevância** (`$meta: "textScore"`) para cada documento.
 4. Os resultados são apresentados ordenados do maior score para o menor, garantindo que os resultados mais pertinentes apareçam no topo.
 
-**Código da Query (Exemplo):**
-```python
-db.collection.find(
-    {"$text": {"$search": "python sql"}},
-    {"score": {"$meta": "textScore"}}
-).sort([("score", {"$meta": "textScore"})])
-
-
 **Login e senha do administrador**
 
 Login: admin
 Senha: 123
+
+**Código da Query (Exemplo):**
+````python
+db.collection.find(
+    {"$text": {"$search": "python sql"}},
+    {"score": {"$meta": "textScore"}}
+).sort([("score", {"$meta": "textScore"})])
