@@ -99,8 +99,8 @@ with tab2:
                         st.subheader(vaga.get('titulo', 'Sem Título'))
                         st.markdown(f"📍 **Local:** {vaga.get('local')} | 💰 **Salário:** {vaga.get('salario')}")
                         st.caption(f"Publicado em: {vaga.get('data_criacao', datetime.now()).strftime('%d/%m/%Y')}")
-                        st.text(f"**Descrição:** {vaga.get('descricao')}")
-                        st.text(f"**Requisitos:** {vaga.get('requisitos')}")
+                        st.markdown(f"**Descrição:**\n {vaga.get('descricao')}")
+                        st.markdown(f"**Requisitos:**\n {vaga.get('requisitos')}")
                     
                     candidaturas = list(db.aplicacoes.find({
                         "vaga_titulo": vaga.get('titulo'),
