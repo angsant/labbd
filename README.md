@@ -51,11 +51,3 @@ db.collection.find(
     {"$text": {"$search": "python sql"}},
     {"score": {"$meta": "textScore"}}
 ).sort([("score", {"$meta": "textScore"})])
-
-## 🚀 Como executar o projeto localmente
-
-1. **Clone o repositório:**
-   ```bash
-   git clone [https://github.com/SEU_USUARIO/NOME_DO_REPO.git](https://github.com/SEU_USUARIO/NOME_DO_REPO.git)
-   cd NOME_DO_REPO
-   
