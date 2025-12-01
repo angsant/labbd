@@ -23,9 +23,9 @@ if st.session_state["user_role"] != "empregador":
     st.stop()
 
 st.markdown(f"# 🏢 Gestão de Vagas")
-st.markdown(f"Bem-vindo, **{st.session_state['user_name']}**. Aqui você pode publicar novas oportunidades.")
+st.markdown(f"Bem-vindo, **{st.session_state['user_name']}**. Gerencie suas oportunidades.")
 
-tab1, tab2 = st.tabs(["Nova Vaga", "Vagas Cadastradas"])
+tab1, tab2 = st.tabs(["Nova Vaga", "Minhas Vagas Publicadas"])
 
 # --- ABA 1: Cadastrar Nova Vaga ---
 with tab1:
@@ -33,8 +33,7 @@ with tab1:
     
     with st.form("form_vaga"):
         titulo = st.text_input("Título da Vaga*", placeholder="Ex: Desenvolvedor Full Stack Jr")
-        # Podemos puxar o nome da empresa automaticamente se você quiser, 
-        # mas vou deixar editável por enquanto:
+        # Preenche automaticamente com o nome do usuário logado
         empresa = st.text_input("Nome da Empresa*", value=st.session_state.get("user_name", ""))
         
         c1, c2 = st.columns(2)
@@ -67,39 +66,58 @@ with tab1:
                         "descricao": descricao,
                         "requisitos": requisitos,
                         "data_criacao": datetime.now(),
-                        "criado_por": st.session_state["user_name"] # Vínculo com quem criou
+                        # CAMPO CHAVE: Grava quem criou a vaga
+                        "criado_por": st.session_state["user_name"] 
                     }
                     try:
                         db.vagas.insert_one(nova_vaga)
                         st.success(f"Vaga **{titulo}** publicada com sucesso!")
-                        st.balloons()
+                        # Atualiza a página para a vaga aparecer na outra aba
+                        st.rerun() 
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-# --- ABA 2: Visualizar Vagas do Banco ---
+# --- ABA 2: Visualizar APENAS as Vagas do Usuário ---
 with tab2:
-    st.markdown("### Vagas Ativas no Banco de Dados")
+    st.markdown(f"### Vagas criadas por: {st.session_state['user_name']}")
     
     if st.button("🔄 Atualizar Lista"):
         st.rerun()
         
     db = get_database()
     if db is not None:
-        # Busca todas as vagas
-        vagas = list(db.vagas.find({}, {"_id": 0})) 
+        # --- FILTRO APLICADO AQUI ---
+        # Antes: find({}) -> Trazia tudo
+        # Agora: find({"criado_por": ...}) -> Traz só as desse usuário
+        usuario_atual = st.session_state["user_name"]
         
-        if len(vagas) > 0:
-            df_vagas = pd.DataFrame(vagas)
+        # Filtra pelo campo 'criado_por' OU pelo nome da 'empresa' (para compatibilidade)
+        filtro = {
+            "$or": [
+                {"criado_por": usuario_atual},
+                {"empresa": usuario_atual}
+            ]
+        }
+        
+        minhas_vagas = list(db.vagas.find(filtro, {"_id": 0}))
+        
+        if len(minhas_vagas) > 0:
+            df_vagas = pd.DataFrame(minhas_vagas)
+            
+            # Mostra tabela formatada
             st.dataframe(
                 df_vagas, 
                 column_config={
                     "titulo": "Cargo",
                     "empresa": "Empresa",
-                    "salario": "Salário",
+                    "local": "Local",
+                    "tipo": "Modelo",
                     "data_criacao": st.column_config.DatetimeColumn("Data", format="DD/MM/YYYY")
                 },
                 use_container_width=True,
                 hide_index=True
             )
+            
+            st.info(f"Você tem {len(minhas_vagas)} vaga(s) ativa(s).")
         else:
-            st.info("Nenhuma vaga cadastrada ainda.")
+            st.warning("Você ainda não cadastrou nenhuma vaga.")
