@@ -1,82 +1,106 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
-# Importamos a função de conexão do arquivo db.py
-# Como o app roda a partir da pasta src, basta importar 'db'
+
+# --- Importação da Conexão ---
 try:
     from db import get_database
 except ImportError:
-    # Fallback caso rode de pasta diferente
     import sys
     import os
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from db import get_database
 
-st.set_page_config(page_title="Cadastro de Candidato", page_icon="👤")
+st.set_page_config(page_title="Meu Currículo", page_icon="👤")
 
-st.markdown("# 👤 Cadastro de Currículo")
-st.markdown("Preencha seus dados para que as empresas encontrem você.")
+# --- 🔒 Verificação de Segurança (Apenas Candidatos) ---
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.warning("⚠️ Você precisa fazer login para acessar essa página.")
+    st.stop()
 
-# --- Formulário de Cadastro ---
+if st.session_state["user_role"] != "candidato":
+    st.error("🚫 Acesso negado. Apenas perfis de 'Candidato' podem cadastrar currículos.")
+    st.stop()
+
+# --- Interface ---
+st.markdown(f"# 👤 Currículo de {st.session_state['user_name']}")
+st.markdown("Mantenha seus dados atualizados para aplicar às vagas.")
+
+# --- Busca dados existentes (Para preencher o formulário) ---
+db = get_database()
+dados_existentes = {}
+
+if db is not None:
+    # Tenta achar o currículo pelo nome do usuário logado
+    dados_existentes = db.candidatos.find_one({"nome": st.session_state["user_name"]}) or {}
+
+# --- Formulário Estrito (Campos Solicitados) ---
 with st.form("form_candidato"):
-    col1, col2 = st.columns(2)
+    st.subheader("Dados Pessoais & Formação")
     
-    with col1:
-        nome = st.text_input("Nome Completo*")
-        email = st.text_input("Email*")
-        telefone = st.text_input("Telefone")
+    # Campo 1: Nome (Vem automático do login, mas permitimos edição para o currículo)
+    nome = st.text_input("Nome Completo", value=dados_existentes.get("nome", st.session_state["user_name"]))
+    
+    # Campo 2: Formação
+    opcoes_formacao = ["Ensino Médio", "Cursando Superior", "Superior Completo", "Pós-Graduação", "Mestrado/Doutorado"]
+    idx_formacao = 0
+    if "formacao" in dados_existentes and dados_existentes["formacao"] in opcoes_formacao:
+        idx_formacao = opcoes_formacao.index(dados_existentes["formacao"])
         
-    with col2:
-        cidade = st.text_input("Cidade/Estado")
-        formacao = st.selectbox("Formação Acadêmica", 
-            ["Ensino Médio", "Cursando Superior", "Superior Completo", "Mestrado/Doutorado"])
-        pretensao = st.number_input("Pretensão Salarial (R$)", min_value=0.0, step=100.0)
+    formacao = st.selectbox("Formação Acadêmica", opcoes_formacao, index=idx_formacao)
+    
+    # Campo 3: Idiomas
+    idiomas = st.text_input("Idiomas", 
+                           value=dados_existentes.get("idiomas", ""),
+                           placeholder="Ex: Inglês Intermediário, Espanhol Básico")
 
     st.divider()
-    
-    # Campos de Texto Longo (Importantes para a IA depois)
-    resumo = st.text_area("Resumo Profissional*", 
-        help="Fale um pouco sobre você. A IA usará isso para buscar seu perfil.")
-    
-    skills = st.text_area("Habilidades e Tecnologias*", 
-        placeholder="Ex: Python, SQL, Comunicação, Vendas...")
-    
-    experiencia = st.text_area("Experiência Profissional", 
-        placeholder="Descreva suas últimas experiências...")
-    
-    idiomas = st.text_input("Idiomas", placeholder="Ex: Inglês avançado, Espanhol básico")
+    st.subheader("Perfil Profissional")
 
-    submitted = st.form_submit_button("💾 Salvar Currículo")
+    # Campo 4: Resumo
+    resumo = st.text_area("Resumo Profissional", 
+                         value=dados_existentes.get("resumo", ""),
+                         help="Um breve texto sobre quem você é e seus objetivos.")
+
+    # Campo 5: Experiência
+    experiencia = st.text_area("Experiência Profissional", 
+                              value=dados_existentes.get("experiencia", ""),
+                              placeholder="Empresas onde trabalhou, cargos e períodos.")
+
+    # Campo 6: Habilidades (Skills)
+    skills = st.text_area("Habilidades e Tecnologias", 
+                         value=dados_existentes.get("skills", ""),
+                         placeholder="Ex: Python, Excel, Vendas, Liderança...")
+
+    submitted = st.form_submit_button("💾 Salvar / Atualizar Currículo")
 
     if submitted:
-        if not nome or not email or not skills:
-            st.warning("⚠️ Preencha os campos obrigatórios (Nome, Email e Habilidades).")
+        if not nome or not skills or not resumo:
+            st.warning("⚠️ Preencha pelo menos Nome, Resumo e Habilidades.")
         else:
-            # --- Conexão com Banco de Dados ---
-            db = get_database()
-            
             if db is not None:
-                # Cria o objeto (dicionário) para salvar
-                novo_candidato = {
+                # Objeto com EXATAMENTE os campos pedidos
+                perfil_atualizado = {
                     "nome": nome,
-                    "email": email,
-                    "telefone": telefone,
-                    "cidade": cidade,
                     "formacao": formacao,
-                    "pretensao": pretensao,
-                    "resumo": resumo,
-                    "skills": skills,
-                    "experiencia": experiencia,
                     "idiomas": idiomas,
-                    "data_cadastro": datetime.now()
+                    "resumo": resumo,
+                    "experiencia": experiencia,
+                    "skills": skills,
+                    "data_atualizacao": datetime.now(),
+                    # Mantemos o vínculo com o usuário do sistema
+                    "username_vinculo": st.session_state.get("user_name") 
                 }
                 
                 try:
-                    # Salva na coleção "candidatos"
-                    db.candidatos.insert_one(novo_candidato)
-                    st.success(f"✅ Sucesso! Currículo de **{nome}** cadastrado no banco!")
-                    st.balloons()
+                    # UPDATE_ONE com UPSERT=True
+                    # Se achar o nome, atualiza. Se não achar, cria novo.
+                    db.candidatos.update_one(
+                        {"nome": nome}, 
+                        {"$set": perfil_atualizado}, 
+                        upsert=True
+                    )
+                    st.success("✅ Currículo salvo com sucesso! Agora você pode aplicar para as vagas na tela inicial.")
                 except Exception as e:
-                    st.error(f"Erro ao salvar no banco: {e}")
+                    st.error(f"Erro ao salvar: {e}")
             else:
-                st.error("❌ Não foi possível conectar ao banco de dados. Verifique a senha no secrets.toml")
+                st.error("Erro de conexão com o banco.")
